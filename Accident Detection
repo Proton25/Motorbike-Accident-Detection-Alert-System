@@ -1,0 +1,165 @@
+#include <LiquidCrystal.h>
+#include <TinyGPS.h>
+#include<SoftwareSerial.h>
+
+SoftwareSerial gpsSerial(2,3);
+
+LiquidCrystal lcd(4, 5, 6, 7, 8,9);
+const int relay_Pin = A2;
+const int buzzer_Pin = A3;
+const int ir_Sensor = 10;
+const int alcohol_Sensor = 11;
+const int vibration_Sensor = 12;
+const int red_led = A0;
+const int green_led = A1;
+const int switch_pin = 13;
+
+TinyGPS gps;
+long lat,lon;
+bool ir_status = LOW;
+bool alcohol_Status = LOW;
+bool vibration_Status = LOW;
+bool switch_status = LOW;
+bool vibration_status = LOW;
+void setup() {
+  Serial.begin(9600);  
+  pinMode(relay_Pin, OUTPUT);
+  pinMode(buzzer_Pin, OUTPUT);
+  pinMode(ir_Sensor, INPUT);
+  pinMode(alcohol_Sensor, INPUT);
+  pinMode(vibration_Sensor, INPUT);
+  pinMode(red_led, OUTPUT);
+  pinMode(green_led, OUTPUT);
+  gpsSerial.begin(9600);
+  lcd.begin(16, 2);
+  lcd.print("ACCIDENT ");
+  lcd.setCursor(0,2);
+  lcd.print("DETECTION SYSTEM");
+  delay(2000); 
+  digitalWrite(relay_Pin, LOW); 
+  digitalWrite(red_led, LOW); 
+  digitalWrite(green_led, LOW);
+  digitalWrite(buzzer_Pin, LOW); 
+}
+void loop() {
+  char car_start = LOW;
+  ir_status = digitalRead(ir_Sensor);
+  delay(100);
+  if(ir_status == LOW)
+  {
+    digitalWrite(buzzer_Pin, LOW);   
+    delay(200);
+    lcd.clear();
+    lcd.print("Seat Belt");
+    lcd.setCursor(3,2);
+    lcd.print("Detected");
+    delay(1000);  
+    alcohol_Status = digitalRead(alcohol_Sensor);
+    delay(100);  
+    if(alcohol_Status == HIGH)
+    {
+       digitalWrite(buzzer_Pin, LOW);   
+       delay(200);
+       lcd.clear();
+       lcd.print("Alcohol not");
+       lcd.setCursor(3,2);
+       lcd.print("Detected");
+       delay(500);  
+       digitalWrite(buzzer_Pin, LOW);   
+       digitalWrite(red_led, LOW); 
+       digitalWrite(green_led, HIGH);        
+       delay(200);       
+       while(1)
+       {
+        vibration_status = digitalRead(vibration_Sensor);
+        delay(100);
+        if(vibration_status == HIGH)
+        {
+              digitalWrite(relay_Pin, LOW); 
+              delay(100);
+              while(1)
+              {
+               locationfind();
+              }
+
+        }
+          if(car_start == LOW)
+          {
+             lcd.clear();
+             lcd.print("Press the switch");
+             delay(100);
+            
+          }
+          switch_status = digitalRead(switch_pin);
+            delay(100);
+          if(switch_status ==  HIGH)
+          {
+              digitalWrite(relay_Pin, HIGH); 
+              delay(100);
+              lcd.clear();
+              lcd.print("Vehicle start");
+              delay(500);
+              car_start = HIGH;
+          }
+       }
+       
+    }
+    else
+    {
+       digitalWrite(buzzer_Pin, HIGH);   
+       delay(200);
+       lcd.clear();
+       lcd.print("Alcohol");
+       lcd.setCursor(3,2);
+       lcd.print("Detected");
+       digitalWrite(buzzer_Pin, HIGH);   
+       digitalWrite(red_led, HIGH); 
+       digitalWrite(green_led, LOW);
+       delay(500);   
+    }
+  }
+  else
+  {
+
+         lcd.clear();
+    lcd.print("Seat Belt");
+    lcd.setCursor(3,2);
+    lcd.print("not Detected");              
+    digitalWrite(buzzer_Pin, HIGH);   
+    digitalWrite(red_led, HIGH); 
+    digitalWrite(green_led, LOW);
+    delay(1000);    
+  }
+}
+
+
+void locationfind()
+{
+   while(gpsSerial.available())
+   { // check for gps data
+  if(gps.encode(gpsSerial.read())){ // encode gps data
+    gps.get_position(&lat,&lon); // get latitude and longitud  gps.get_position(&lat, &lon); // get latitude and longitude
+      //Serial.print("Position: ");
+      //Serial.print((lat * 0.000001), 6);
+      //Serial.print(",");
+      //Serial.println((lon * 0.000001), 6);
+      SendMessage();
+  }
+ }
+}
+
+void SendMessage()
+{
+  gpsSerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  delay(1000);  // Delay of 1000 milli seconds or 1 second
+  gpsSerial.println("AT+CMGS=\"+91*****\"\r"); // Replace x with mobile number
+  delay(1000);
+  gpsSerial.println("Accident Detected please find location below");// The SMS text you want to send
+  gpsSerial.println("lattitude:");// The SMS text you want to send
+  gpsSerial.println((lat * 0.000001), 6);// The SMS text you want to send
+  gpsSerial.println("longitude:");// The SMS text you want to send
+  gpsSerial.println((lon * 0.000001), 6);
+  delay(100);
+  gpsSerial.println((char)26);// ASCII code of CTRL+Z
+  delay(1000);
+}
