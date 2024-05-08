@@ -1,0 +1,49 @@
+#include <TinyGPS.h>
+#include<SoftwareSerial.h>
+TinyGPS gps;
+long lat, lon;
+
+SoftwareSerial gpsSerial(2,3);
+
+void setup(){
+Serial.begin(9600); // connect serial
+//Serial.println("The GPS Received Signal:");
+  gpsSerial.begin(9600); // connect gps sensor
+
+}
+ 
+void loop(){
+    
+  locationfind();
+}
+
+void locationfind()
+{
+   while(gpsSerial.available())
+   { // check for gps data
+  if(gps.encode(gpsSerial.read())){ // encode gps data
+    gps.get_position(&lat,&lon); // get latitude and longitud  gps.get_position(&lat, &lon); // get latitude and longitude
+      Serial.print("Position: ");
+      Serial.print((lat * 0.000001), 6);
+      Serial.print(",");
+      Serial.println((lon * 0.000001), 6);
+      SendMessage();
+  }
+ }
+}
+
+void SendMessage()
+{
+  gpsSerial.println("AT+CMGF=1");    //Sets the GSM Module in Text Mode
+  delay(1000);  // Delay of 1000 milli seconds or 1 second
+  gpsSerial.println("AT+CMGS=\"+918793418848\"\r"); // Replace x with mobile number
+  delay(1000);
+  gpsSerial.println("Accident Detected please find location below");// The SMS text you want to send
+  gpsSerial.println("lattitude:");// The SMS text you want to send
+  gpsSerial.println((lat * 0.000001), 6);// The SMS text you want to send
+  gpsSerial.println("longitude:");// The SMS text you want to send
+  gpsSerial.println((lon * 0.000001), 6);
+  delay(100);
+  gpsSerial.println((char)26);// ASCII code of CTRL+Z
+  delay(1000);
+}
